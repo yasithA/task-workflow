@@ -6,7 +6,7 @@ interface DomainEvent<S> {
     event: S;
     timestamp: number;
     // TODO: Map payload to event
-    payload?: unknown;
+    payload: unknown;
 }
 
 /**
@@ -52,7 +52,7 @@ export class EventStore<S> {
     private addNewEntityToStore(
         entityId: string,
         event: S,
-        payload?: Record<string, unknown>
+        payload: Record<string, unknown>
     ) {
         const eventLog = new EventLog<S>();
         eventLog.events.push({
@@ -72,9 +72,9 @@ export class EventStore<S> {
      *
      * @param entityId Entity ID
      * @param event Event
-     * @param payload Payload related to event. (optional)
+     * @param payload Payload related to event.
      */
-    appendEvent(entityId: string, event: S, payload?: Record<string, unknown>) {
+    appendEvent(entityId: string, event: S, payload: Record<string, unknown>) {
         if (this.entities === undefined) {
             this.addNewEntityToStore(entityId, event, payload);
         } else {
