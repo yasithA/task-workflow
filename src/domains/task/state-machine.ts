@@ -9,7 +9,7 @@ import { TaskState } from './task';
  * The State Machine for Task instances.
  * Defines all possible state transitions.
  */
-const TaskStateMachine: StateMachinePlan<TaskState> = {
+const TaskStateMachine: StateMachinePlan<typeof TaskState> = {
     [TaskState.Planned]: {
         fromStates: INITIAL_STATE,
         toStates: [TaskState.InProgress, TaskState.Abandoned],
