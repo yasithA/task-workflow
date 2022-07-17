@@ -122,9 +122,9 @@ describe('event-store', () => {
             .fn()
             .mockImplementation(
                 (
-                    entityId: string,
-                    event: OrderState,
-                    payload?: Record<string, unknown>
+                    _entityId: string,
+                    _event: OrderState,
+                    _payload?: Record<string, unknown>
                 ) => {
                     null;
                 }
@@ -133,9 +133,9 @@ describe('event-store', () => {
             .fn()
             .mockImplementation(
                 (
-                    entityId: string,
-                    event: OrderState,
-                    payload?: Record<string, unknown>
+                    _entityId: string,
+                    _event: OrderState,
+                    _payload?: Record<string, unknown>
                 ) => {
                     null;
                 }
