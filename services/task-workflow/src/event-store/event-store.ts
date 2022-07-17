@@ -102,8 +102,8 @@ export class EventStore<S> {
      * @returns an array of DomainEvents
      */
     getAllEventsByEntityId(entityId: string) {
-        if (this.entities == undefined) {
-            throw new Error('No entities exists yet.');
+        if (this.entities === undefined) {
+            throw new Error('No entities exists yet');
         }
         const storedEvent = this.entities[entityId];
         if (storedEvent === undefined) {
