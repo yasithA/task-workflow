@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:14.4
+    environment:
+      POSTGRES_USER: '${POSTGRESQL_ROOT_USER}'
+      POSTGRES_PASSWORD: '${POSTGRESQL_ROOT_PASSWORD}'
+    volumes:
+      - 'task_workflow_postgres_data:/var/lib/postgresql/data:rw'
+    ports:
+      - '${POSTGRESQL_PORT}:5432'
+    restart: unless-stopped
+
+volumes:
+  task_workflow_postgres_data:
