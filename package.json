@@ -9,6 +9,7 @@
     "scripts": {
         "build": "turbo run build",
         "dev": "turbo run dev --parallel",
+        "dev:watch": "turbo run dev:watch --parallel",
         "lint": "turbo run lint",
         "test": "turbo run test",
         "infra:up": "cd task-workflow-infra && docker-compose -f docker-compose.yml up -d",
