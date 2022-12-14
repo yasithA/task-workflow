@@ -1,5 +1,6 @@
 import { EventStore } from '../../event-store/event-store';
-import { Task, TaskEvents, TaskState } from './task';
+import { TaskEvents } from './task-events';
+import { Task, TaskState } from '@prisma/client';
 
 /**
  * Returns the latest state for a given Task ID.

@@ -1,4 +1,5 @@
-import { Task, TaskEvents, TaskState } from './task';
+import { TaskEvents } from './task-events';
+import { Task, TaskState } from '@prisma/client';
 import { v4 as uuid } from 'uuid';
 import { EventStore } from '../../event-store';
 import { getTaskByTaskId } from './task-query-utils';
@@ -22,6 +23,7 @@ export const createTask = (
         description,
         id: uuid(),
         state: TaskState.Planned,
+        comment: null,
     };
 
     eventStore.appendEvent(task.id, TaskEvents.Create, { ...task });

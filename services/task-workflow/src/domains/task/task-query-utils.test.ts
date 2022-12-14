@@ -1,5 +1,6 @@
 import { EventStore } from '../../event-store';
-import { TaskEvents, TaskState } from './task';
+import { TaskEvents } from './task-events';
+import { TaskState } from '@prisma/client';
 import { v4 as uuid } from 'uuid';
 import { getTaskByTaskId, getTaskStateByTaskId } from './task-query-utils';
 

@@ -1,7 +1,7 @@
 import { ApolloServer } from '@apollo/server';
 import { ValidateJwt, PerformAuthorization } from '@task-workflow/user-auth';
 import express from 'express';
-import { taskQueryResolver } from './domains/task';
+import { taskQueryResolvers } from './domains/task';
 import { taskTypeDefs } from './graphql/schema';
 import { getTasks } from './route-handlers';
 import { json } from 'body-parser';
@@ -18,7 +18,7 @@ async function init() {
     const apolloServer = new ApolloServer({
         typeDefs: taskTypeDefs,
         resolvers: {
-            ...taskQueryResolver,
+            ...taskQueryResolvers,
         },
         plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
     });

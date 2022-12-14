@@ -6,7 +6,8 @@ import {
     moveToInProgress,
     moveToPaused,
 } from './task-command-utils';
-import { TaskEvents, TaskState } from './task';
+import { TaskEvents } from './task-events';
+import { TaskState } from '@prisma/client';
 
 describe('test-command-utils', () => {
     let taskEventStore: EventStore<TaskEvents>;
