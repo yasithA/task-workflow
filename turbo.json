@@ -17,6 +17,9 @@
         },
         "dev:watch": {
             "cache": true
+        },
+        "db:generate": {
+            "cache": false
         }
     }
 }

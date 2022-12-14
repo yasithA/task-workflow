@@ -9,7 +9,8 @@
         "test:reset": "node -r dotenv/config scripts/create-test-db.js",
         "build": "npx tsc",
         "lint": "eslint src/**",
-        "test": "jest"
+        "test": "jest",
+        "db:generate": "npx prisma generate"
     },
     "keywords": [],
     "author": "yasith.ariyasena@gmail.com",
