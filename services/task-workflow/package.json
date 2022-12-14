@@ -8,7 +8,8 @@
         "dev:watch": "tsc-watch --onSuccess \"node dist/index.js\"",
         "build": "npx tsc",
         "lint": "eslint src/**",
-        "test": "jest"
+        "test": "jest",
+        "db:generate": "npx prisma generate"
     },
     "keywords": [],
     "author": "yasith.ariyasena@gmail.com",
