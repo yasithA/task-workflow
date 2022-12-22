@@ -1,3 +1,5 @@
+import { Prisma } from '../../prisma/generated/prisma/client';
+import { EventEntityRepository } from './event-entity-type';
 import { EventStore } from './event-store';
 
 describe('event-store', () => {
@@ -7,6 +9,41 @@ describe('event-store', () => {
         REMOVE_LINE = 'REMOVE_LINE',
         CONFIRM = 'CONFIRM',
         CANCEL = 'CANCEL',
+    }
+
+    interface OrderEvents {
+        id: string;
+        eventLog: Prisma.JsonValue[];
+        currentEvent: number;
+    }
+
+    const createMock = jest.fn();
+    let getMock = jest.fn().mockResolvedValue(null);
+    const getAllMock = jest.fn();
+    const appendEventMock = jest.fn();
+
+    class OrderEventRepository
+        implements EventEntityRepository<OrderEvents, OrderState>
+    {
+        create(
+            entityId: string,
+            eventLog: Prisma.JsonValue[]
+        ): Promise<OrderEvents> {
+            return createMock(entityId, eventLog);
+        }
+        get(entityId: string): Promise<OrderEvents | null> {
+            return getMock(entityId);
+        }
+        getAll(): Promise<OrderEvents[]> {
+            return getAllMock();
+        }
+        appendEvent(
+            entityId: string,
+            updatedEventLog: Prisma.JsonValue[],
+            currentEventSeq: number
+        ): Promise<OrderEvents> {
+            return appendEventMock(entityId, updatedEventLog, currentEventSeq);
+        }
     }
 
     const payloads: { [key: string]: Record<string, unknown> } = {
@@ -34,127 +71,223 @@ describe('event-store', () => {
         },
     };
 
-    it('When an event is appended with a payload, it is added to event log of the event store', () => {
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('When an event is appended with a payload, it is added to event log of the event store', async () => {
         // Arrange
-        const orderEventStore = new EventStore<OrderState>();
+        const orderEventRepository = new OrderEventRepository();
+        const orderEventStore = new EventStore<
+            OrderState,
+            OrderEvents,
+            OrderEventRepository
+        >(orderEventRepository);
 
         // Act
-        orderEventStore.appendEvent(
+        await orderEventStore.appendEvent(
             '1',
             OrderState.CREATE,
             payloads['createOrderPayload']
         );
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue({
+            id: '1',
+            eventLog: [
+                {
+                    event: 'CREATE_ORDER',
+                    eventId: 1,
+                    timestamp: 1671690332882,
+                    payload: {},
+                },
+            ],
+            currentEvent: 1,
+        });
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine1Payload']
         );
-        orderEventStore.appendEvent(
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine2Payload']
         );
-        orderEventStore.appendEvent(
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine3Payload']
         );
-        orderEventStore.appendEvent(
+        await orderEventStore.appendEvent(
             '1',
             OrderState.REMOVE_LINE,
             payloads['removeLinePayload']
         );
 
         // Assert
-        const allEvents = orderEventStore.getAllEventsByEntityId('1');
+        const allEvents = await orderEventStore.getAllEventsByEntityId('1');
         expect(allEvents).toHaveLength(5);
-        expect(allEvents.map((event) => event.event)).toStrictEqual([
+        expect(allEvents.map((event) => (event as any).event)).toStrictEqual([
             OrderState.CREATE,
             OrderState.ADD_LINE,
             OrderState.ADD_LINE,
             OrderState.ADD_LINE,
             OrderState.REMOVE_LINE,
         ]);
+        expect(createMock).toBeCalledTimes(1);
+        expect(appendEventMock).toBeCalledTimes(4);
     });
 
-    it('When a new domain instance is added to an existing event store, the domain events gets appended to the respective event log', () => {
+    it('When a new domain instance is added to an existing event store, the domain events gets appended to the respective event log', async () => {
         // Arrange
-        const orderEventStore = new EventStore<OrderState>();
+        const orderEventRepository = new OrderEventRepository();
+        const orderEventStore = new EventStore<
+            OrderState,
+            OrderEvents,
+            OrderEventRepository
+        >(orderEventRepository);
 
         // Act
         // Domain instance 1
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue(null);
+        await orderEventStore.appendEvent(
             '1',
             OrderState.CREATE,
             payloads['createOrderPayload']
         );
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue({
+            id: '1',
+            eventLog: [
+                {
+                    event: 'CREATE_ORDER',
+                    eventId: 1,
+                    timestamp: 1671690332882,
+                    payload: {},
+                },
+            ],
+            currentEvent: 1,
+        });
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine1Payload']
         );
 
         // Domain instance 2
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue(null);
+        await orderEventStore.appendEvent(
             '2',
             OrderState.CREATE,
             payloads['createOrderPayload']
         );
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue({
+            id: '2',
+            eventLog: [
+                {
+                    event: 'CREATE_ORDER',
+                    eventId: 1,
+                    timestamp: 1671690332882,
+                    payload: {},
+                },
+            ],
+            currentEvent: 1,
+        });
+        await orderEventStore.appendEvent(
             '2',
             OrderState.ADD_LINE,
             payloads['addLine3Payload']
         );
 
         // Assert
-        const allEvents = orderEventStore.getAllEventsByEntityId('2');
-        expect(allEvents).toHaveLength(2);
-        expect(allEvents.map((event) => event.event)).toStrictEqual([
-            OrderState.CREATE,
-            OrderState.ADD_LINE,
+        expect(createMock).toHaveBeenNthCalledWith(1, '1', [
+            expect.objectContaining({
+                event: OrderState.CREATE,
+                eventId: 1,
+                payload: payloads['createOrderPayload'],
+            }),
         ]);
+        expect(createMock).toHaveBeenNthCalledWith(2, '2', [
+            expect.objectContaining({
+                event: OrderState.CREATE,
+                eventId: 1,
+                payload: payloads['createOrderPayload'],
+            }),
+        ]);
+        expect(appendEventMock).toHaveBeenNthCalledWith(
+            1,
+            '1',
+            [
+                expect.objectContaining({
+                    event: OrderState.CREATE,
+                    eventId: 1,
+                    payload: {},
+                }),
+                expect.objectContaining({
+                    event: OrderState.ADD_LINE,
+                    eventId: 2,
+                    payload: payloads['addLine1Payload'],
+                }),
+            ],
+            2
+        );
+        expect(appendEventMock).toHaveBeenNthCalledWith(
+            2,
+            '2',
+            [
+                expect.objectContaining({
+                    event: OrderState.CREATE,
+                    eventId: 1,
+                    payload: {},
+                }),
+                expect.objectContaining({
+                    event: OrderState.ADD_LINE,
+                    eventId: 2,
+                    payload: payloads['addLine3Payload'],
+                }),
+            ],
+            2
+        );
     });
 
-    it('When subscribed to an event store, the callback function is called everytime an event is appended', () => {
+    it('When subscribed to an event store, the callback function is called everytime an event is appended', async () => {
         // Arrange
-        const orderEventStore = new EventStore<OrderState>();
-        const subscriptionMethod1 = jest
-            .fn()
-            .mockImplementation(
-                (
-                    _entityId: string,
-                    _event: OrderState,
-                    _payload?: Record<string, unknown>
-                ) => {
-                    null;
-                }
-            );
-        const subscriptionMethod2 = jest
-            .fn()
-            .mockImplementation(
-                (
-                    _entityId: string,
-                    _event: OrderState,
-                    _payload?: Record<string, unknown>
-                ) => {
-                    null;
-                }
-            );
+        const orderEventRepository = new OrderEventRepository();
+        const orderEventStore = new EventStore<
+            OrderState,
+            OrderEvents,
+            OrderEventRepository
+        >(orderEventRepository);
+
+        const subscriptionMethod1 = jest.fn();
+        const subscriptionMethod2 = jest.fn();
+
         orderEventStore.subscribe(subscriptionMethod1);
         orderEventStore.subscribe(subscriptionMethod2);
 
         // Act
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue(null);
+        await orderEventStore.appendEvent(
             '1',
             OrderState.CREATE,
             payloads['createOrderPayload']
         );
-        orderEventStore.appendEvent(
+        getMock = jest.fn().mockResolvedValue({
+            id: '1',
+            eventLog: [
+                {
+                    event: 'CREATE_ORDER',
+                    eventId: 1,
+                    timestamp: 1671690332882,
+                    payload: {},
+                },
+            ],
+            currentEvent: 1,
+        });
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine1Payload']
         );
-        orderEventStore.appendEvent(
+        await orderEventStore.appendEvent(
             '1',
             OrderState.ADD_LINE,
             payloads['addLine2Payload']
@@ -167,6 +300,7 @@ describe('event-store', () => {
             OrderState.CREATE,
             payloads['createOrderPayload']
         );
+
         expect(subscriptionMethod1).toHaveBeenNthCalledWith(
             2,
             '1',
