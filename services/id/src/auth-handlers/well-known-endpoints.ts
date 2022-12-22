@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma/generated/prisma/client';
 import { getJwk, getPrivateKey } from '../common/utils';
 
 export async function handleWellKnownEndpoints(req: Request, res: Response) {

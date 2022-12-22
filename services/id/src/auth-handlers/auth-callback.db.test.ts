@@ -1,4 +1,7 @@
-import { AuthContext, PrismaClient } from '@prisma/client';
+import {
+    AuthContext,
+    PrismaClient,
+} from '../../prisma/generated/prisma/client';
 import path from 'path';
 import { getPrismaClient } from '../test-utils';
 import request from 'supertest';

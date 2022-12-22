@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { randomBytes, createHash } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../prisma/generated/prisma/client';
 import { Config, AppContextKeys } from '../common/config';
 import { URL } from 'url';
 

@@ -1,4 +1,8 @@
-import { AccessToken, PrismaClient, User } from '@prisma/client';
+import {
+    AccessToken,
+    PrismaClient,
+    User,
+} from '../../prisma/generated/prisma/client';
 import path from 'path';
 import { getPrismaClient } from '../test-utils';
 import request from 'supertest';

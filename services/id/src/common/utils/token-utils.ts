@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User } from '../../../prisma/generated/prisma/client';
 import { JWTOptions } from '@task-workflow/user-auth';
 import { createPublicKey, KeyObject } from 'crypto';
 import { calculateJwkThumbprint, exportJWK, JWK, SignJWT } from 'jose';
