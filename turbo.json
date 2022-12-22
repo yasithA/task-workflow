@@ -20,6 +20,9 @@
         },
         "db:generate": {
             "cache": false
+        },
+        "test:reset": {
+            "cache": false
         }
     }
 }
