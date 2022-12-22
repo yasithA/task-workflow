@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "./generated/prisma/client"
 }
 
 datasource db {
@@ -10,18 +11,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Task {
-  id          String    @id @default(uuid())
-  name        String
-  description String
-  state       TaskState @default(Planned)
-  comment     String?
-}
-
-enum TaskState {
-  Planned
-  InProgress
-  Completed
-  Paused
-  Abandoned
+model TaskEvents {
+  id           String @id @default(uuid())
+  eventLog     Json[]
+  currentEvent Int
 }

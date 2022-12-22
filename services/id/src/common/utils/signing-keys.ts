@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../prisma/generated/prisma/client';
 import { createPrivateKey, generateKeyPairSync, KeyObject } from 'crypto';
 import { Express } from 'express';
 

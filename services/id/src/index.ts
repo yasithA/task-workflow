@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../prisma/generated/prisma/client';
 import { ValidateJwt } from '@task-workflow/user-auth';
 import express from 'express';
 import { getAllConfig, AppContextKeys } from './common/config';

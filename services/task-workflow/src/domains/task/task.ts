@@ -1,7 +1,7 @@
 /**
  * All domain events related to Task.
  */
-export enum TaskEvents {
+export enum TaskEvent {
     Create = 'Create',
     MoveToInProgress = 'MoveToInProgress',
     MoveToCompleted = 'MoveToCompleted',
@@ -29,4 +29,14 @@ export interface Task {
     description: string;
     state: TaskState;
     comment?: string;
+}
+
+/**
+ * Represents a single TaskEvent record.
+ */
+export interface PersistedTaskEvent {
+    event: TaskEvent;
+    eventId: number;
+    payload: Task;
+    timestamp: string;
 }

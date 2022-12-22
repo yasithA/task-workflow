@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../../prisma/generated/prisma/client';
 import path from 'path';
 import { getPrismaClient } from '../../test-utils';
 import { getPrivateKey, initializeSigningKeys } from './signing-keys';

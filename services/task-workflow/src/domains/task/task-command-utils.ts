@@ -1,8 +1,10 @@
-import { Task, TaskEvents, TaskState } from './task';
+import { TaskEvent, Task, TaskState } from './task';
 import { v4 as uuid } from 'uuid';
 import { EventStore } from '../../event-store';
 import { getTaskByTaskId } from './task-query-utils';
 import { validateStateTransition } from './state-machine';
+import { TaskEvents } from '../../../prisma/generated/prisma/client';
+import { TaskEventRepository } from './task-event-respository';
 
 /**
  * Create a new Task instance and add it to the event store.
@@ -12,19 +14,21 @@ import { validateStateTransition } from './state-machine';
  * @param description
  * @returns
  */
-export const createTask = (
-    eventStore: EventStore<TaskEvents>,
+export const createTask = async (
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
     name: string,
-    description: string
-): Task => {
+    description: string,
+    comment?: string
+): Promise<Task> => {
     const task: Task = {
         name,
         description,
         id: uuid(),
         state: TaskState.Planned,
+        comment,
     };
 
-    eventStore.appendEvent(task.id, TaskEvents.Create, { ...task });
+    await eventStore.appendEvent(task.id, TaskEvent.Create, { ...task });
     return task;
 };
 
@@ -35,18 +39,21 @@ export const createTask = (
  * @param taskId
  * @returns
  */
-export const moveToInProgress = (
-    eventStore: EventStore<TaskEvents>,
-    taskId: string
-): Task => {
-    const task = getTaskByTaskId(eventStore, taskId);
+export const moveToInProgress = async (
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
+    taskId: string,
+    comment?: string
+): Promise<Task> => {
+    const task = await getTaskByTaskId(eventStore, taskId);
     validateStateTransition(task.state, TaskState.InProgress);
-    eventStore.appendEvent(taskId, TaskEvents.MoveToInProgress, {
+    await eventStore.appendEvent(taskId, TaskEvent.MoveToInProgress, {
         state: TaskState.InProgress,
+        comment,
     });
     return {
         ...task,
         state: TaskState.InProgress,
+        comment,
     };
 };
 
@@ -57,18 +64,21 @@ export const moveToInProgress = (
  * @param taskId
  * @returns
  */
-export const moveToCompleted = (
-    eventStore: EventStore<TaskEvents>,
-    taskId: string
-): Task => {
-    const task = getTaskByTaskId(eventStore, taskId);
+export const moveToCompleted = async (
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
+    taskId: string,
+    comment?: string
+): Promise<Task> => {
+    const task = await getTaskByTaskId(eventStore, taskId);
     validateStateTransition(task.state, TaskState.Completed);
-    eventStore.appendEvent(taskId, TaskEvents.MoveToCompleted, {
+    await eventStore.appendEvent(taskId, TaskEvent.MoveToCompleted, {
         state: TaskState.Completed,
+        comment,
     });
     return {
         ...task,
         state: TaskState.Completed,
+        comment,
     };
 };
 
@@ -79,18 +89,21 @@ export const moveToCompleted = (
  * @param taskId
  * @returns
  */
-export const moveToAbandoned = (
-    eventStore: EventStore<TaskEvents>,
-    taskId: string
-): Task => {
-    const task = getTaskByTaskId(eventStore, taskId);
+export const moveToAbandoned = async (
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
+    taskId: string,
+    comment?: string
+): Promise<Task> => {
+    const task = await getTaskByTaskId(eventStore, taskId);
     validateStateTransition(task.state, TaskState.Abandoned);
-    eventStore.appendEvent(taskId, TaskEvents.Abandon, {
+    await eventStore.appendEvent(taskId, TaskEvent.Abandon, {
         state: TaskState.Abandoned,
+        comment,
     });
     return {
         ...task,
         state: TaskState.Abandoned,
+        comment,
     };
 };
 
@@ -101,17 +114,20 @@ export const moveToAbandoned = (
  * @param taskId
  * @returns
  */
-export const moveToPaused = (
-    eventStore: EventStore<TaskEvents>,
-    taskId: string
-): Task => {
-    const task = getTaskByTaskId(eventStore, taskId);
+export const moveToPaused = async (
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
+    taskId: string,
+    comment?: string
+): Promise<Task> => {
+    const task = await getTaskByTaskId(eventStore, taskId);
     validateStateTransition(task.state, TaskState.Paused);
-    eventStore.appendEvent(taskId, TaskEvents.MoveToPaused, {
+    await eventStore.appendEvent(taskId, TaskEvent.MoveToPaused, {
         state: TaskState.Paused,
+        comment,
     });
     return {
         ...task,
         state: TaskState.Paused,
+        comment,
     };
 };

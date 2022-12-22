@@ -1,16 +1,18 @@
+import { Prisma } from '../../prisma/generated/prisma/client';
+import { EventEntityRepository, EventEntityType } from './event-entity-type';
+
 /**
  * Represents a Domain Event for a given Event Type.
  */
-interface DomainEvent<S> {
+export interface DomainEvent<S> {
     eventId: number;
     event: S;
     timestamp: number;
-    // TODO: Map payload to event
     payload: unknown;
 }
 
 /**
- * The Event Log for a given Domain Aggregate.
+ * The Event Log for a given Domain Entity.
  * This contains a list of Domain Events.
  *
  */
@@ -25,14 +27,22 @@ class EventLog<S> {
 
 /**
  * EventStore creates a container to store events
- * for any given domain aggregate for a given Event Type.
+ * for any given domain entity for a given Event Type.
  *
+ * `S` is the Event Type.
+ * `E` is the Domain Entity Type which conforms with `EventEntityType` interface.
+ * `T` is the Domain Entity Repository which conforms `EventEntityRepository` interface.
  */
-export class EventStore<S> {
-    private entities: Record<string, EventLog<S>> | undefined;
+export class EventStore<
+    S,
+    E extends EventEntityType,
+    T extends EventEntityRepository<E, S>
+> {
     private subscriptions;
-    constructor() {
-        this.entities = undefined;
+    private eventEntityRepository: T;
+
+    constructor(eventEntityRepository: T) {
+        this.eventEntityRepository = eventEntityRepository;
         this.subscriptions = new Array<
             (
                 entityId: string,
@@ -49,7 +59,7 @@ export class EventStore<S> {
      * @param event
      * @param payload
      */
-    private addNewEntityToStore(
+    private async addNewEntityToStore(
         entityId: string,
         event: S,
         payload: Record<string, unknown>
@@ -62,34 +72,43 @@ export class EventStore<S> {
             payload,
         });
 
-        this.entities = {
-            [entityId]: eventLog,
-        };
+        await this.eventEntityRepository.create(
+            entityId,
+            eventLog.events as unknown as Prisma.JsonValue[]
+        );
     }
 
     /**
-     * Append a domain event to the event log of the domain aggregate's event store.
+     * Append a domain event to the event log of the domain entity's event store.
      *
      * @param entityId Entity ID
      * @param event Event
      * @param payload Payload related to event.
      */
-    appendEvent(entityId: string, event: S, payload: Record<string, unknown>) {
-        if (this.entities === undefined) {
-            this.addNewEntityToStore(entityId, event, payload);
+    async appendEvent(
+        entityId: string,
+        event: S,
+        payload: Record<string, unknown>
+    ) {
+        const storedEntity = await this.eventEntityRepository.get(entityId);
+        if (storedEntity === null) {
+            await this.addNewEntityToStore(entityId, event, payload);
         } else {
-            const storedEntity = this.entities[entityId];
-            if (storedEntity === undefined) {
-                this.addNewEntityToStore(entityId, event, payload);
-            } else {
-                storedEntity.events.push({
-                    event,
-                    eventId: ++storedEntity.currentEvent,
-                    timestamp: Date.now(),
-                    payload,
-                });
-            }
+            const currentPayload = storedEntity.eventLog;
+            currentPayload.push({
+                event,
+                eventId: ++storedEntity.currentEvent,
+                timestamp: Date.now(),
+                payload,
+            } as Prisma.JsonValue);
+
+            await this.eventEntityRepository.appendEvent(
+                entityId,
+                currentPayload,
+                storedEntity.currentEvent
+            );
         }
+
         for (const subscription of this.subscriptions) {
             subscription(entityId, event, payload);
         }
@@ -99,17 +118,23 @@ export class EventStore<S> {
      * Retrieve all events for a Given domain instance.
      *
      * @param entityId Unique identifier of the domain instance.
-     * @returns an array of DomainEvents
+     * @returns an array of DomainEvents for the given entity.
      */
-    getAllEventsByEntityId(entityId: string) {
-        if (this.entities === undefined) {
-            throw new Error('No entities exists yet');
-        }
-        const storedEvent = this.entities[entityId];
-        if (storedEvent === undefined) {
+    async getAllEventsByEntityId(entityId: string) {
+        const storedEntity = await this.eventEntityRepository.get(entityId);
+        if (storedEntity === null) {
             throw new Error(`No entity found for id [${entityId}].`);
         }
-        return storedEvent.events;
+        return storedEntity.eventLog;
+    }
+
+    /**
+     * Retrieve all entities in the event store.
+     *
+     * @returns an array of Domain Entities.
+     */
+    async getAllEntities() {
+        return this.eventEntityRepository.getAll();
     }
 
     /**

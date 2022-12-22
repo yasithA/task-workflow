@@ -16,7 +16,8 @@
         "infra:down": "cd task-workflow-infra && docker-compose -f docker-compose.yml down",
         "apply-templates": "ts-node scripts/apply-templates.ts",
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-        "db:generate": "turbo run db:generate --parallel"
+        "db:generate": "turbo run db:generate --parallel",
+        "test:reset": "turbo run test:reset --parallel"
     },
     "keywords": [],
     "author": "yasith.ariyasena@gmail.com",
