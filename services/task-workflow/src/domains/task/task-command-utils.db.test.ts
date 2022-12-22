@@ -6,45 +6,74 @@ import {
     moveToInProgress,
     moveToPaused,
 } from './task-command-utils';
-import { TaskEvents } from './task-events';
-import { TaskState } from '@prisma/client';
+import { TaskEvent, TaskState } from './task';
+import {
+    PrismaClient,
+    TaskEvents,
+} from '../../../prisma/generated/prisma/client';
+import { getPrismaClient } from '../../test-utils/test-utils';
+import path from 'path';
+import { TaskEventRepository } from './task-event-respository';
 
 describe('test-command-utils', () => {
-    let taskEventStore: EventStore<TaskEvents>;
+    let taskEventRepository: TaskEventRepository;
+    let taskEventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>;
 
-    beforeAll(() => {
-        taskEventStore = new EventStore<TaskEvents>();
+    let prismaClient: PrismaClient;
+
+    beforeAll(async () => {
+        prismaClient = getPrismaClient(
+            path.basename(__filename).replace('-', '_')
+        );
+        taskEventRepository = new TaskEventRepository(prismaClient);
+        taskEventStore = new EventStore<
+            TaskEvent,
+            TaskEvents,
+            TaskEventRepository
+        >(taskEventRepository);
+    });
+
+    afterEach(async () => {
+        await prismaClient.taskEvents.deleteMany();
     });
 
     describe('createTask', () => {
-        it('When createTask is called, a new Task instance is created in the event store and the instance is returned', () => {
+        it('When createTask is called, a new Task instance is created in the event store and the instance is returned', async () => {
             // Act
-            const taskA = createTask(taskEventStore, 'Cook Dinner', 'Pasta');
+            const taskA = await createTask(
+                taskEventStore,
+                'Cook Dinner',
+                'Pasta'
+            );
 
             // Assert
-            const allEvents = taskEventStore.getAllEventsByEntityId(taskA.id);
+            const allEvents = await taskEventStore.getAllEventsByEntityId(
+                taskA.id
+            );
 
             expect(taskA.state).toEqual(TaskState.Planned);
             expect(taskA.id).toBeTruthy();
-            expect(allEvents[0]).toMatchObject({
-                event: 'Create',
-                eventId: 1,
-                payload: {
-                    ...taskA,
-                },
-            });
+            expect(allEvents[0]).toMatchObject(
+                expect.objectContaining({
+                    event: 'Create',
+                    eventId: 1,
+                    payload: {
+                        ...taskA,
+                    },
+                })
+            );
         });
     });
 
     describe('moveToInProgress', () => {
         it.each([
-            [TaskState.Planned, TaskEvents.Create],
-            [TaskState.Paused, TaskEvents.MoveToPaused],
+            [TaskState.Planned, TaskEvent.Create],
+            [TaskState.Paused, TaskEvent.MoveToPaused],
         ])(
             'When moveToInProgress is called with state as %s, relevant event is appended to the event store and returns the tasl with the  state of the task is set to InProgress',
             async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
@@ -54,7 +83,10 @@ describe('test-command-utils', () => {
                 });
 
                 // Act
-                const updatedTask = moveToInProgress(taskEventStore, taskA.id);
+                const updatedTask = await moveToInProgress(
+                    taskEventStore,
+                    taskA.id
+                );
 
                 // Assert
                 expect(updatedTask).toEqual({
@@ -65,26 +97,26 @@ describe('test-command-utils', () => {
         );
 
         it.each([
-            [TaskState.Abandoned, TaskEvents.Abandon],
-            [TaskState.Completed, TaskEvents.MoveToCompleted],
-            [TaskState.InProgress, TaskEvents.MoveToInProgress],
+            [TaskState.Abandoned, TaskEvent.Abandon],
+            [TaskState.Completed, TaskEvent.MoveToCompleted],
+            [TaskState.InProgress, TaskEvent.MoveToInProgress],
         ])(
             'When moveToInProgress is called with task state %s, a state change error is raised',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act and Assert
-                expect(() =>
+                await expect(
                     moveToInProgress(taskEventStore, taskA.id)
-                ).toThrow(
+                ).rejects.toThrow(
                     `State transition from [${taskState}] to [InProgress] is not allowed.`
                 );
             }
@@ -92,21 +124,24 @@ describe('test-command-utils', () => {
     });
 
     describe('moveToCompleted', () => {
-        it.each([[TaskState.InProgress, TaskEvents.MoveToInProgress]])(
+        it.each([[TaskState.InProgress, TaskEvent.MoveToInProgress]])(
             'When moveToCompleted is called with state as %s, relevant event is appended to the event store and returns the tasl with the  state of the task is set to Completed',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act
-                const updatedTask = moveToCompleted(taskEventStore, taskA.id);
+                const updatedTask = await moveToCompleted(
+                    taskEventStore,
+                    taskA.id
+                );
 
                 // Assert
                 expect(updatedTask).toEqual({
@@ -117,25 +152,27 @@ describe('test-command-utils', () => {
         );
 
         it.each([
-            [TaskState.Planned, TaskEvents.Create],
-            [TaskState.Paused, TaskEvents.MoveToPaused],
-            [TaskState.Abandoned, TaskEvents.Abandon],
-            [TaskState.Completed, TaskEvents.MoveToCompleted],
+            [TaskState.Planned, TaskEvent.Create],
+            [TaskState.Paused, TaskEvent.MoveToPaused],
+            [TaskState.Abandoned, TaskEvent.Abandon],
+            [TaskState.Completed, TaskEvent.MoveToCompleted],
         ])(
             'When moveToCompleted is called with task state %s, a state change error is raised',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act and Assert
-                expect(() => moveToCompleted(taskEventStore, taskA.id)).toThrow(
+                await expect(
+                    moveToCompleted(taskEventStore, taskA.id)
+                ).rejects.toThrow(
                     `State transition from [${taskState}] to [Completed] is not allowed.`
                 );
             }
@@ -144,24 +181,27 @@ describe('test-command-utils', () => {
 
     describe('moveToAbandoned', () => {
         it.each([
-            [TaskState.Planned, TaskEvents.Create],
-            [TaskState.InProgress, TaskEvents.MoveToInProgress],
-            [TaskState.Paused, TaskEvents.MoveToPaused],
+            [TaskState.Planned, TaskEvent.Create],
+            [TaskState.InProgress, TaskEvent.MoveToInProgress],
+            [TaskState.Paused, TaskEvent.MoveToPaused],
         ])(
             'When moveToAbandoned is called with state as %s, relevant event is appended to the event store and returns the tasl with the  state of the task is set to Abandoned',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act
-                const updatedTask = moveToAbandoned(taskEventStore, taskA.id);
+                const updatedTask = await moveToAbandoned(
+                    taskEventStore,
+                    taskA.id
+                );
 
                 // Assert
                 expect(updatedTask).toEqual({
@@ -172,23 +212,25 @@ describe('test-command-utils', () => {
         );
 
         it.each([
-            [TaskState.Abandoned, TaskEvents.Abandon],
-            [TaskState.Completed, TaskEvents.MoveToCompleted],
+            [TaskState.Abandoned, TaskEvent.Abandon],
+            [TaskState.Completed, TaskEvent.MoveToCompleted],
         ])(
             'When moveToAbandoned is called with task state %s, a state change error is raised',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act and Assert
-                expect(() => moveToAbandoned(taskEventStore, taskA.id)).toThrow(
+                await expect(
+                    moveToAbandoned(taskEventStore, taskA.id)
+                ).rejects.toThrow(
                     `State transition from [${taskState}] to [Abandoned] is not allowed.`
                 );
             }
@@ -196,21 +238,24 @@ describe('test-command-utils', () => {
     });
 
     describe('moveToPaused', () => {
-        it.each([[TaskState.InProgress, TaskEvents.MoveToInProgress]])(
+        it.each([[TaskState.InProgress, TaskEvent.MoveToInProgress]])(
             'When moveToPaused is called with state as %s, relevant event is appended to the event store and returns the tasl with the  state of the task is set to Paused',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act
-                const updatedTask = moveToPaused(taskEventStore, taskA.id);
+                const updatedTask = await moveToPaused(
+                    taskEventStore,
+                    taskA.id
+                );
 
                 // Assert
                 expect(updatedTask).toEqual({
@@ -221,25 +266,27 @@ describe('test-command-utils', () => {
         );
 
         it.each([
-            [TaskState.Planned, TaskEvents.Create],
-            [TaskState.Abandoned, TaskEvents.Abandon],
-            [TaskState.Completed, TaskEvents.MoveToCompleted],
-            [TaskState.Paused, TaskEvents.MoveToPaused],
+            [TaskState.Planned, TaskEvent.Create],
+            [TaskState.Abandoned, TaskEvent.Abandon],
+            [TaskState.Completed, TaskEvent.MoveToCompleted],
+            [TaskState.Paused, TaskEvent.MoveToPaused],
         ])(
             'When moveToPaused is called with task state %s, a state change error is raised',
-            (taskState, taskEvent) => {
+            async (taskState, taskEvent) => {
                 // Arrange
-                const taskA = createTask(
+                const taskA = await createTask(
                     taskEventStore,
                     'Cook Dinner',
                     'Pasta'
                 );
-                taskEventStore.appendEvent(taskA.id, taskEvent, {
+                await taskEventStore.appendEvent(taskA.id, taskEvent, {
                     state: taskState,
                 });
 
                 // Act and Assert
-                expect(() => moveToPaused(taskEventStore, taskA.id)).toThrow(
+                await expect(
+                    moveToPaused(taskEventStore, taskA.id)
+                ).rejects.toThrow(
                     `State transition from [${taskState}] to [Paused] is not allowed.`
                 );
             }
