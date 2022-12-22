@@ -3,7 +3,7 @@ import {
     INITIAL_STATE,
     StateMachinePlan,
 } from '../../common/types';
-import { TaskState } from '@prisma/client';
+import { TaskState } from './task';
 
 /**
  * The State Machine for Task instances.
