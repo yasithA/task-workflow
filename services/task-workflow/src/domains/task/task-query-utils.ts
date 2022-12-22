@@ -1,6 +1,7 @@
 import { EventStore } from '../../event-store/event-store';
-import { TaskEvents } from './task-events';
-import { Task, TaskState } from '@prisma/client';
+import { TaskEvent, Task, TaskState, PersistedTaskEvent } from './task';
+import { Prisma, TaskEvents } from '../../../prisma/generated/prisma/client';
+import { TaskEventRepository } from './task-event-respository';
 
 /**
  * Returns the latest state for a given Task ID.
@@ -9,14 +10,17 @@ import { Task, TaskState } from '@prisma/client';
  * @param taskId
  * @returns
  */
-export const getTaskStateByTaskId = (
-    eventStore: EventStore<TaskEvents>,
+export async function getTaskStateByTaskId(
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
     taskId: string
-): TaskState => {
-    const allEvents = eventStore.getAllEventsByEntityId(taskId);
-    const allStates = allEvents.map((event) => (event.payload as Task).state);
+): Promise<TaskState> {
+    const allEvents = await eventStore.getAllEventsByEntityId(taskId);
+    const allStates = allEvents.map(
+        (event) =>
+            ((event as unknown as PersistedTaskEvent).payload as Task).state
+    );
     return allStates[allStates.length - 1];
-};
+}
 
 /**
  * Returns the latest Task object for a given task ID.
@@ -25,19 +29,49 @@ export const getTaskStateByTaskId = (
  * @param taskId
  * @returns
  */
-export const getTaskByTaskId = (
-    eventStore: EventStore<TaskEvents>,
+export async function getTaskByTaskId(
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>,
     taskId: string
-): Task => {
-    const allEvents = eventStore.getAllEventsByEntityId(taskId);
-    const foldedDomainEvent = allEvents.reduce((prevEvent, currEvent) => {
+): Promise<Task> {
+    const allEvents = await eventStore.getAllEventsByEntityId(taskId);
+    const foldedDomainEvent = reduceTaskEventStream(allEvents);
+    return foldedDomainEvent.payload as Task;
+}
+
+/**
+ * Retrieve all tasks
+ *
+ * @param eventStore
+ * @returns
+ */
+export async function getTasks(
+    eventStore: EventStore<TaskEvent, TaskEvents, TaskEventRepository>
+): Promise<Task[]> {
+    const taskEvents = await eventStore.getAllEntities();
+
+    const tasks: Task[] = [];
+    for (const taskEvent of taskEvents) {
+        const task = reduceTaskEventStream(taskEvent.eventLog);
+        tasks.push(task.payload);
+    }
+    return tasks;
+}
+
+/**
+ * Reduce the event stream for a specific task to the final state.
+ * @param eventLog
+ * @returns
+ */
+function reduceTaskEventStream(
+    eventLog: Prisma.JsonValue[]
+): PersistedTaskEvent {
+    return eventLog.reduce((prevEvent, currEvent) => {
         return {
-            ...currEvent,
+            ...(currEvent as unknown as PersistedTaskEvent),
             payload: {
-                ...Object(prevEvent.payload),
-                ...Object(currEvent.payload),
+                ...Object((prevEvent as unknown as PersistedTaskEvent).payload),
+                ...Object((currEvent as unknown as PersistedTaskEvent).payload),
             },
         };
-    });
-    return foldedDomainEvent.payload as Task;
-};
+    }) as unknown as PersistedTaskEvent;
+}
