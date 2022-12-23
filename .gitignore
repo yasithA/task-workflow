@@ -3,6 +3,7 @@ node_modules
 ._DS_Store
 **/**.DS_Store
 **/**.env
+.parcel-cache/
 
 # turbo
 .turbo
